@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流水详情 - One魔方赛事流水管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>One魔方赛事流水管理系统</h1>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">数据看板</a>
+                <a href="records.html" class="nav-link active">流水详情</a>
+                <a href="input.html" class="nav-link">流水录入</a>
+            </div>
+        </nav>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <div class="page-header">
+                <h2>流水详情</h2>
+                <div class="header-actions">
+                    <button id="exportBtn" class="btn secondary">
+                        <span class="btn-icon">📥</span>
+                        导出Excel
+                    </button>
+                    <a href="input.html" class="btn primary">
+                        <span class="btn-icon">➕</span>
+                        新增记录
+                    </a>
+                </div>
+            </div>
+
+            <!-- 搜索和筛选 -->
+            <div class="filters-section">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="搜索比赛名称..." class="search-input">
+                    <button id="searchBtn" class="search-btn">🔍</button>
+                </div>
+                
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="typeFilter">比赛类型：</label>
+                        <select id="typeFilter" class="filter-select">
+                            <option value="">全部</option>
+                            <option value="协会机构">协会机构</option>
+                            <option value="高校联赛">高校联赛</option>
+                            <option value="高校校园赛">高校校园赛</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="certifiedFilter">认证状态：</label>
+                        <select id="certifiedFilter" class="filter-select">
+                            <option value="">全部</option>
+                            <option value="true">认证赛</option>
+                            <option value="false">非认证赛</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="settledFilter">结算状态：</label>
+                        <select id="settledFilter" class="filter-select">
+                            <option value="">全部</option>
+                            <option value="true">已结算</option>
+                            <option value="false">未结算</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="dateFromFilter">开始日期：</label>
+                        <input type="date" id="dateFromFilter" class="filter-input">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="dateToFilter">结束日期：</label>
+                        <input type="date" id="dateToFilter" class="filter-input">
+                    </div>
+                    
+                    <button id="clearFilters" class="btn tertiary">清空筛选</button>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="table-container">
+                <table class="data-table" id="tournamentsTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="tournamentName">比赛名称 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="eventDate">举办日期 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="participantCount">参赛人数 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="withdrawalCount">退赛人数 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="totalRevenue">流水总计 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="wechatPayment">微信支付 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="refundBalance">退款结余 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="processingFee">手续费 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="wechatFee">微信手续费 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="certificationFee">认证费 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="totalFee">总手续费 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="medalCount">奖牌数量 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="medalCost">奖牌费用 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="hostSettlement">主办结算 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="totalIncome">总收入 <span class="sort-icon">⇅</span></th>
+                            <th class="sortable" data-sort="isSettled">结算状态 <span class="sort-icon">⇅</span></th>
+                            <th class="no-sort">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tournamentsTableBody">
+                        <!-- 动态加载数据 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination">
+                <button id="prevPage" class="pagination-btn">上一页</button>
+                <span id="pageInfo" class="page-info">第 1 页，共 1 页</span>
+                <button id="nextPage" class="pagination-btn">下一页</button>
+                <div class="page-size-selector">
+                    <label for="pageSize">每页显示：</label>
+                    <select id="pageSize">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑比赛记录</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editId">
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editTournamentName">比赛名称：</label>
+                            <input type="text" id="editTournamentName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editEventDate">举办日期：</label>
+                            <input type="date" id="editEventDate" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editParticipantCount">参赛人数：</label>
+                            <input type="number" id="editParticipantCount" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editWithdrawalCount">退赛人数：</label>
+                            <input type="number" id="editWithdrawalCount" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editTotalRevenue">流水总计：</label>
+                            <input type="number" id="editTotalRevenue" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editWechatPayment">微信支付：</label>
+                            <input type="number" id="editWechatPayment" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editRefundBalance">退款结余：</label>
+                            <input type="number" id="editRefundBalance" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editMedalCount">奖牌数量：</label>
+                            <input type="number" id="editMedalCount" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editMedalPrice">奖牌单价：</label>
+                            <input type="number" id="editMedalPrice" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editTournamentType">比赛类型：</label>
+                            <select id="editTournamentType" required>
+                                <option value="">请选择</option>
+                                <option value="协会机构">协会机构</option>
+                                <option value="高校联赛">高校联赛</option>
+                                <option value="高校校园赛">高校校园赛</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="editIsCertified">
+                                是否为认证赛
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn tertiary" data-action="cancel">取消</button>
+                <button type="submit" form="editForm" class="btn primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>确认删除</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除这条比赛记录吗？此操作不可恢复。</p>
+                <p class="delete-tournament-name"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn tertiary" data-action="cancel">取消</button>
+                <button type="button" class="btn danger" id="confirmDelete">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>正在加载数据...</p>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/records.js"></script>
+</body>
+</html>

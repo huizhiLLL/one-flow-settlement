@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One魔方赛事流水管理系统 - 数据看板</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>One魔方赛事流水管理系统</h1>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">数据看板</a>
+                <a href="records.html" class="nav-link">流水详情</a>
+                <a href="input.html" class="nav-link">流水录入</a>
+            </div>
+        </nav>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <div class="dashboard-header">
+                <h2>数据看板</h2>
+                <div class="date-info">
+                    <span id="currentDate"></span>
+                </div>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-content">
+                        <h3>总流水</h3>
+                        <p class="stat-value" id="totalRevenue">¥0</p>
+                        <span class="stat-label">累计流水金额</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <h3>总收入</h3>
+                        <p class="stat-value" id="totalIncome">¥0</p>
+                        <span class="stat-label">累计总收入</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">🏆</div>
+                    <div class="stat-content">
+                        <h3>比赛场数</h3>
+                        <p class="stat-value" id="totalTournaments">0</p>
+                        <span class="stat-label">总比赛场次</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <h3>参赛总人数</h3>
+                        <p class="stat-value" id="totalParticipants">0</p>
+                        <span class="stat-label">累计参赛人数</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 月度统计 -->
+            <div class="monthly-stats">
+                <h3>月度统计</h3>
+                <div class="month-selector">
+                    <button id="prevMonth">上月</button>
+                    <span id="currentMonth"></span>
+                    <button id="nextMonth">下月</button>
+                </div>
+                
+                <div class="monthly-grid">
+                    <div class="monthly-item">
+                        <span class="monthly-label">本月流水</span>
+                        <span class="monthly-value" id="monthlyRevenue">¥0</span>
+                    </div>
+                    <div class="monthly-item">
+                        <span class="monthly-label">本月收入</span>
+                        <span class="monthly-value" id="monthlyIncome">¥0</span>
+                    </div>
+                    <div class="monthly-item">
+                        <span class="monthly-label">本月场次</span>
+                        <span class="monthly-value" id="monthlyTournaments">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="quick-actions">
+                <h3>快速操作</h3>
+                <div class="action-buttons">
+                    <a href="input.html" class="action-btn primary">
+                        <span class="btn-icon">➕</span>
+                        录入新比赛
+                    </a>
+                    <a href="records.html" class="action-btn secondary">
+                        <span class="btn-icon">📋</span>
+                        查看详情
+                    </a>
+                    <button id="exportBtn" class="action-btn tertiary">
+                        <span class="btn-icon">📥</span>
+                        导出数据
+                    </button>
+                </div>
+            </div>
+
+            <!-- 最近比赛 -->
+            <div class="recent-tournaments">
+                <h3>最近比赛</h3>
+                <div class="tournament-list" id="recentTournaments">
+                    <!-- 动态加载最近的比赛记录 -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>正在加载数据...</p>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

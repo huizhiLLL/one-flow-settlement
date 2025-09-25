@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流水录入 - One魔方赛事流水管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>One魔方赛事流水管理系统</h1>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">数据看板</a>
+                <a href="records.html" class="nav-link">流水详情</a>
+                <a href="input.html" class="nav-link active">流水录入</a>
+            </div>
+        </nav>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <div class="page-header">
+                <h2>流水录入</h2>
+                <p class="page-subtitle">录入新的比赛流水信息</p>
+            </div>
+
+            <div class="input-container">
+                <!-- 输入表单 -->
+                <div class="input-section">
+                    <h3>基本信息</h3>
+                    <form id="tournamentForm" class="tournament-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="tournamentName">比赛名称 <span class="required">*</span></label>
+                                <input type="text" id="tournamentName" name="tournamentName" required 
+                                       placeholder="请输入比赛名称">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="eventDate">举办日期 <span class="required">*</span></label>
+                                <input type="date" id="eventDate" name="eventDate" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="participantCount">参赛人数 <span class="required">*</span></label>
+                                <input type="number" id="participantCount" name="participantCount" 
+                                       min="0" required placeholder="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="withdrawalCount">退赛人数 <span class="required">*</span></label>
+                                <input type="number" id="withdrawalCount" name="withdrawalCount" 
+                                       min="0" required placeholder="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="totalRevenue">流水总计 <span class="required">*</span></label>
+                                <input type="number" id="totalRevenue" name="totalRevenue" 
+                                       step="0.01" min="0" required placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="wechatPayment">微信支付 <span class="required">*</span></label>
+                                <input type="number" id="wechatPayment" name="wechatPayment" 
+                                       step="0.01" min="0" required placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="refundBalance">退款结余 <span class="required">*</span></label>
+                                <input type="number" id="refundBalance" name="refundBalance" 
+                                       step="0.01" min="0" required placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="medalCount">奖牌数量 <span class="required">*</span></label>
+                                <input type="number" id="medalCount" name="medalCount" 
+                                       min="0" required placeholder="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="medalPrice">奖牌单价 <span class="required">*</span></label>
+                                <input type="number" id="medalPrice" name="medalPrice" 
+                                       step="0.01" min="0" required placeholder="18.00" value="18">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tournamentType">比赛类型 <span class="required">*</span></label>
+                                <select id="tournamentType" name="tournamentType" required>
+                                    <option value="">请选择比赛类型</option>
+                                    <option value="协会机构">协会机构</option>
+                                    <option value="高校联赛">高校联赛</option>
+                                    <option value="高校校园赛">高校校园赛</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="isCertified" name="isCertified">
+                                    <span class="checkmark"></span>
+                                    是否为认证赛
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="resetForm" class="btn tertiary">重置表单</button>
+                            <button type="submit" class="btn primary">计算并保存</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 实时计算结果显示 -->
+                <div class="preview-section">
+                    <h3>计算预览</h3>
+                    <div class="calculation-preview" id="calculationPreview">
+                        <div class="preview-item">
+                            <span class="preview-label">手续费：</span>
+                            <span class="preview-value" id="previewProcessingFee">¥0.00</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">微信手续费：</span>
+                            <span class="preview-value" id="previewWechatFee">¥0.00</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">认证费：</span>
+                            <span class="preview-value" id="previewCertificationFee">¥0.00</span>
+                        </div>
+                        <div class="preview-item highlight">
+                            <span class="preview-label">总手续费：</span>
+                            <span class="preview-value" id="previewTotalFee">¥0.00</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">奖牌费用：</span>
+                            <span class="preview-value" id="previewMedalCost">¥0.00</span>
+                        </div>
+                        <div class="preview-item highlight">
+                            <span class="preview-label">主办结算费用：</span>
+                            <span class="preview-value" id="previewHostSettlement">¥0.00</span>
+                        </div>
+                        <div class="preview-item highlight">
+                            <span class="preview-label">总收入：</span>
+                            <span class="preview-value" id="previewTotalIncome">¥0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- 计算说明 -->
+                    <div class="calculation-explanation">
+                        <h4>计算说明</h4>
+                        <div class="explanation-content" id="explanationContent">
+                            <p>请填写基本信息以查看计算结果</p>
+                        </div>
+                    </div>
+
+                    <!-- 费率说明 -->
+                    <div class="fee-rates">
+                        <h4>费率标准</h4>
+                        <ul>
+                            <li><strong>协会机构/高校联赛：</strong>流水总计的1.08%</li>
+                            <li><strong>高校校园赛：</strong>流水总计的0.4%</li>
+                            <li><strong>微信手续费：</strong>流水总计的0.6%</li>
+                            <li><strong>认证费：</strong>协会机构认证赛为参赛人数×1元，其他为0</li>
+                            <li><strong>最低收费：</strong>协会机构比赛总手续费最低100元</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 成功提示模态框 -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>录入成功</h3>
+            </div>
+            <div class="modal-body">
+                <div class="success-icon">✅</div>
+                <p>比赛流水信息已成功录入系统！</p>
+                <div class="success-actions">
+                    <button class="btn secondary" id="continueInput">继续录入</button>
+                    <a href="records.html" class="btn primary">查看详情</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>正在保存数据...</p>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/input.js"></script>
+</body>
+</html>
