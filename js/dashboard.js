@@ -68,6 +68,9 @@ async function loadDashboardData() {
  * 更新统计数据显示
  */
 function updateStatistics(data) {
+    console.log('更新统计数据，收到的data:', data);
+    console.log('总收入原始值:', data.totalIncome);
+    
     // 总流水
     const totalRevenueElement = document.getElementById('totalRevenue');
     if (totalRevenueElement) {
@@ -78,6 +81,7 @@ function updateStatistics(data) {
     const totalIncomeElement = document.getElementById('totalIncome');
     if (totalIncomeElement) {
         totalIncomeElement.textContent = formatCurrency(data.totalIncome || 0);
+        console.log('总收入显示值:', formatCurrency(data.totalIncome || 0));
     }
     
     // 比赛场数
@@ -198,10 +202,12 @@ function animateNumber(element, start, end, isCurrency = false) {
             clearInterval(timer);
         }
         
-        const displayValue = Math.round(current);
         if (isCurrency) {
-            element.textContent = formatCurrency(displayValue);
+            // 货币保持两位小数，不进行整数四舍五入
+            element.textContent = formatCurrency(current);
         } else {
+            // 非货币使用整数显示
+            const displayValue = Math.round(current);
             element.textContent = displayValue.toLocaleString();
         }
     }, stepTime);

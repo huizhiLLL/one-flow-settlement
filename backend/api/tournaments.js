@@ -57,7 +57,7 @@ function calculateFees(data) {
         totalFee: Number(totalFee.toFixed(2)),
         medalCost: Number(medalCost.toFixed(2)),
         hostSettlement: Number(hostSettlement.toFixed(2)),
-        totalIncome: Number(totalIncome.toFixed(2))
+        totalIncome: totalIncome  // 不四舍五入，保持精度
     };
 }
 

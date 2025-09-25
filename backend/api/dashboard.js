@@ -100,10 +100,16 @@ async function getTotalStatistics() {
         let settledCount = 0
         let certifiedCount = 0
         
-        tournaments.forEach(tournament => {
+        tournaments.forEach((tournament, index) => {
+            console.log(`比赛${index + 1}: ${tournament.tournamentName}`)
+            console.log(`  - totalRevenue: ${tournament.totalRevenue}`)
+            console.log(`  - totalIncome: ${tournament.totalIncome}`)
+            
             totalRevenue += tournament.totalRevenue || 0
             totalIncome += tournament.totalIncome || 0
             totalParticipants += tournament.participantCount || 0
+            
+            console.log(`  累计totalIncome: ${totalIncome}`)
             
             if (tournament.isSettled) {
                 settledCount++
@@ -115,8 +121,8 @@ async function getTotalStatistics() {
         })
         
         const result = {
-            totalRevenue,
-            totalIncome,
+            totalRevenue: Number(totalRevenue.toFixed(2)),
+            totalIncome: Number(totalIncome.toFixed(2)),
             totalTournaments: tournaments.length,
             totalParticipants,
             settledCount,
