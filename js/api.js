@@ -58,6 +58,12 @@ async function request(url, options = {}) {
             data = await response.text();
         }
         
+        // 如果后端已经返回了标准格式，直接返回
+        if (data && typeof data === 'object' && 'success' in data) {
+            return data;
+        }
+        
+        // 否则包装成标准格式
         return {
             success: true,
             data: data,
@@ -212,8 +218,8 @@ const DashboardAPI = {
      * @returns {Promise} 统计数据
      */
     async getStats(params = {}) {
-        const queryString = new URLSearchParams(params).toString();
-        const url = `/dashboard${queryString ? `?${queryString}` : ''}`;
+        const queryString = new URLSearchParams({type: 'stats', ...params}).toString();
+        const url = `/dashboard?${queryString}`;
         return await request(url);
     },
 
@@ -224,7 +230,7 @@ const DashboardAPI = {
      * @returns {Promise} 月度统计数据
      */
     async getMonthlyStats(year, month) {
-        return await request(`/dashboard?year=${year}&month=${month}`);
+        return await request(`/dashboard?type=monthly&year=${year}&month=${month}`);
     },
 
     /**
@@ -233,7 +239,16 @@ const DashboardAPI = {
      * @returns {Promise} 最近比赛记录
      */
     async getRecentTournaments(limit = 10) {
-        return await request(`/dashboard?limit=${limit}`);
+        return await request(`/dashboard?type=recent&limit=${limit}`);
+    },
+
+    /**
+     * 获取仪表板统计数据（兼容函数名）
+     * @param {object} params - 查询参数
+     * @returns {Promise} 统计数据
+     */
+    async getDashboardStats(params = {}) {
+        return await this.getStats(params);
     },
 
     /**
@@ -506,10 +521,14 @@ const MockAPI = {
 // 根据环境选择使用真实API还是模拟API
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+// 强制使用真实API (调试用)
+// 如果后端接口已准备好，请将下面这行设置为 false
+const FORCE_USE_REAL_API = true;
+
 // 导出API对象
 const API = {
-    Tournament: isDevelopment ? MockAPI : TournamentAPI,
-    Dashboard: isDevelopment ? MockAPI : DashboardAPI,
+    Tournament: (isDevelopment && !FORCE_USE_REAL_API) ? MockAPI : TournamentAPI,
+    Dashboard: (isDevelopment && !FORCE_USE_REAL_API) ? MockAPI : DashboardAPI,
     Export: ExportAPI
 };
 

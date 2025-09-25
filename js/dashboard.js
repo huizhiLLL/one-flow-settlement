@@ -1,7 +1,6 @@
 // 数据看板页面逻辑
 
 // 页面状态
-let currentMonthOffset = 0; // 当前查看的月份偏移量
 
 /**
  * 页面初始化
@@ -21,35 +20,12 @@ function initializePage() {
     if (currentDateElement) {
         currentDateElement.textContent = getCurrentDate();
     }
-    
-    // 初始化月份显示
-    updateMonthDisplay();
 }
 
 /**
  * 设置事件监听器
  */
 function setupEventListeners() {
-    // 月份切换按钮
-    const prevMonthBtn = document.getElementById('prevMonth');
-    const nextMonthBtn = document.getElementById('nextMonth');
-    
-    if (prevMonthBtn) {
-        prevMonthBtn.addEventListener('click', () => {
-            currentMonthOffset--;
-            updateMonthDisplay();
-            loadMonthlyData();
-        });
-    }
-    
-    if (nextMonthBtn) {
-        nextMonthBtn.addEventListener('click', () => {
-            currentMonthOffset++;
-            updateMonthDisplay();
-            loadMonthlyData();
-        });
-    }
-    
     // 导出按钮
     const exportBtn = document.getElementById('exportBtn');
     if (exportBtn) {
@@ -69,18 +45,22 @@ function setupEventListeners() {
  */
 async function loadDashboardData() {
     try {
-        const result = await API.Dashboard.getDashboardStats();
+        console.log('开始加载仪表板数据...');
+        
+        // 调用默认的仪表板接口（不传type参数，使用getFullDashboardData）
+        const result = await request('/dashboard');
+        console.log('仪表板API返回结果:', result);
         
         if (result.success) {
             updateStatistics(result.data);
             updateRecentTournaments(result.data.recentTournaments || []);
-            updateMonthlyStats(result.data);
         } else {
+            console.error('仪表板API调用失败:', result);
             showError('加载数据失败：' + (result.error || '未知错误'));
         }
     } catch (error) {
         console.error('加载仪表板数据失败:', error);
-        showError('加载数据失败，请稍后重试');
+        showError('加载数据失败，请稍后重试：' + error.message);
     }
 }
 
@@ -116,26 +96,6 @@ function updateStatistics(data) {
     animateNumbers();
 }
 
-/**
- * 更新月度统计数据
- */
-function updateMonthlyStats(data) {
-    const monthlyRevenueElement = document.getElementById('monthlyRevenue');
-    const monthlyIncomeElement = document.getElementById('monthlyIncome');
-    const monthlyTournamentsElement = document.getElementById('monthlyTournaments');
-    
-    if (monthlyRevenueElement) {
-        monthlyRevenueElement.textContent = formatCurrency(data.monthlyRevenue || 0);
-    }
-    
-    if (monthlyIncomeElement) {
-        monthlyIncomeElement.textContent = formatCurrency(data.monthlyIncome || 0);
-    }
-    
-    if (monthlyTournamentsElement) {
-        monthlyTournamentsElement.textContent = (data.monthlyTournaments || 0).toString();
-    }
-}
 
 /**
  * 更新最近比赛列表
@@ -169,47 +129,6 @@ function updateRecentTournaments(tournaments) {
     container.innerHTML = html;
 }
 
-/**
- * 更新月份显示
- */
-function updateMonthDisplay() {
-    const currentDate = new Date();
-    const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + currentMonthOffset, 1);
-    const monthInfo = getMonthInfo(targetDate);
-    
-    const currentMonthElement = document.getElementById('currentMonth');
-    if (currentMonthElement) {
-        currentMonthElement.textContent = monthInfo.monthName;
-    }
-    
-    // 更新按钮状态
-    const nextMonthBtn = document.getElementById('nextMonth');
-    if (nextMonthBtn) {
-        // 不能查看未来月份
-        nextMonthBtn.disabled = currentMonthOffset >= 0;
-    }
-}
-
-/**
- * 加载指定月份的数据
- */
-async function loadMonthlyData() {
-    try {
-        const currentDate = new Date();
-        const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + currentMonthOffset, 1);
-        
-        const result = await API.Dashboard.getMonthlyStats(targetDate.getFullYear(), targetDate.getMonth() + 1);
-        
-        if (result.success) {
-            updateMonthlyStats(result.data);
-        } else {
-            showError('加载月度数据失败：' + (result.error || '未知错误'));
-        }
-    } catch (error) {
-        console.error('加载月度数据失败:', error);
-        showError('加载月度数据失败，请稍后重试');
-    }
-}
 
 /**
  * 处理数据导出
@@ -320,7 +239,6 @@ function createEmptyState(message = '暂无数据') {
  */
 function refreshData() {
     loadDashboardData();
-    loadMonthlyData();
 }
 
 /**

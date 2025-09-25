@@ -1,13 +1,24 @@
 import cloud from '@lafjs/cloud'
 
-// 获取数据库集合
+// 获取数据库
 const db = cloud.database()
-const collection = db.collection('tournaments')
 
 export default async function (ctx) {
     const { method, body, query } = ctx
     
     try {
+        // 设置CORS头
+        ctx.response.setHeader('Access-Control-Allow-Origin', '*')
+        ctx.response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
+        ctx.response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+        
+        // 处理预检请求
+        if (method === 'OPTIONS') {
+            return { success: true }
+        }
+        
+        console.log(`处理Export ${method}请求, query:`, query, 'body:', body)
+        
         switch (method) {
             case 'POST':
                 // 导出Excel数据
@@ -34,6 +45,8 @@ export default async function (ctx) {
  */
 async function getTournamentsForExport(query = {}) {
     try {
+        console.log('获取导出数据, 参数:', query)
+        
         const { 
             dateFrom, 
             dateTo, 
@@ -43,19 +56,20 @@ async function getTournamentsForExport(query = {}) {
             format = 'json'
         } = query
         
+        const collection = db.collection('tournaments')
+        let dbQuery = collection
+        
         // 构建查询条件
-        let whereConditions = {}
+        const whereConditions = {}
         
         // 日期范围筛选
         if (dateFrom || dateTo) {
-            whereConditions.eventDate = {}
-            if (dateFrom) {
-                whereConditions.eventDate = cloud.database().command.gte(new Date(dateFrom))
-            }
-            if (dateTo) {
-                whereConditions.eventDate = whereConditions.eventDate 
-                    ? whereConditions.eventDate.and(cloud.database().command.lte(new Date(dateTo)))
-                    : cloud.database().command.lte(new Date(dateTo))
+            if (dateFrom && dateTo) {
+                whereConditions.eventDate = db.command.gte(new Date(dateFrom)).and(db.command.lte(new Date(dateTo)))
+            } else if (dateFrom) {
+                whereConditions.eventDate = db.command.gte(new Date(dateFrom))
+            } else if (dateTo) {
+                whereConditions.eventDate = db.command.lte(new Date(dateTo))
             }
         }
         
@@ -74,13 +88,16 @@ async function getTournamentsForExport(query = {}) {
             whereConditions.isCertified = isCertified === 'true'
         }
         
-        // 获取数据
-        const result = await collection
-            .where(whereConditions)
-            .orderBy('eventDate', 'desc')
-            .get()
+        // 应用筛选条件
+        if (Object.keys(whereConditions).length > 0) {
+            dbQuery = dbQuery.where(whereConditions)
+        }
         
-        const tournaments = result.data
+        // 获取数据
+        const result = await dbQuery.orderBy('eventDate', 'desc').get()
+        const tournaments = result.data || []
+        
+        console.log(`导出查询到${tournaments.length}条记录`)
         
         if (format === 'csv') {
             return {
@@ -101,6 +118,7 @@ async function getTournamentsForExport(query = {}) {
         }
         
     } catch (error) {
+        console.error('获取导出数据失败:', error)
         throw new Error('获取导出数据失败: ' + error.message)
     }
 }
@@ -110,24 +128,27 @@ async function getTournamentsForExport(query = {}) {
  */
 async function exportTournamentsData(options = {}) {
     try {
+        console.log('导出比赛数据, 选项:', options)
+        
         const { 
             filters = {}, 
             format = 'json',
             fields = null // 可以指定导出的字段
         } = options
         
+        const collection = db.collection('tournaments')
+        let dbQuery = collection
+        
         // 构建查询条件
-        let whereConditions = {}
+        const whereConditions = {}
         
         if (filters.dateFrom || filters.dateTo) {
-            whereConditions.eventDate = {}
-            if (filters.dateFrom) {
-                whereConditions.eventDate = cloud.database().command.gte(new Date(filters.dateFrom))
-            }
-            if (filters.dateTo) {
-                whereConditions.eventDate = whereConditions.eventDate 
-                    ? whereConditions.eventDate.and(cloud.database().command.lte(new Date(filters.dateTo)))
-                    : cloud.database().command.lte(new Date(filters.dateTo))
+            if (filters.dateFrom && filters.dateTo) {
+                whereConditions.eventDate = db.command.gte(new Date(filters.dateFrom)).and(db.command.lte(new Date(filters.dateTo)))
+            } else if (filters.dateFrom) {
+                whereConditions.eventDate = db.command.gte(new Date(filters.dateFrom))
+            } else if (filters.dateTo) {
+                whereConditions.eventDate = db.command.lte(new Date(filters.dateTo))
             }
         }
         
@@ -143,24 +164,22 @@ async function exportTournamentsData(options = {}) {
             whereConditions.isCertified = filters.isCertified
         }
         
-        // 搜索条件
+        // 搜索条件（模糊匹配比赛名称）
         if (filters.search) {
-            whereConditions.tournamentName = cloud.database().command.includes(filters.search)
+            whereConditions.tournamentName = db.command.includes(filters.search)
         }
         
-        let query = collection.where(whereConditions).orderBy('eventDate', 'desc')
-        
-        // 字段选择
-        if (fields && Array.isArray(fields)) {
-            const fieldObj = {}
-            fields.forEach(field => {
-                fieldObj[field] = true
-            })
-            query = query.field(fieldObj)
+        // 应用筛选条件
+        if (Object.keys(whereConditions).length > 0) {
+            dbQuery = dbQuery.where(whereConditions)
         }
         
-        const result = await query.get()
-        const tournaments = result.data
+        dbQuery = dbQuery.orderBy('eventDate', 'desc')
+        
+        const result = await dbQuery.get()
+        const tournaments = result.data || []
+        
+        console.log(`根据筛选条件导出${tournaments.length}条记录`)
         
         if (format === 'csv') {
             return {
@@ -182,6 +201,7 @@ async function exportTournamentsData(options = {}) {
         }
         
     } catch (error) {
+        console.error('导出数据失败:', error)
         throw new Error('导出数据失败: ' + error.message)
     }
 }

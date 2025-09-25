@@ -14,9 +14,32 @@ let filteredTournaments = [];
  * 页面初始化
  */
 document.addEventListener('DOMContentLoaded', function() {
+    // 确保筛选器初始状态为空
+    clearAllFilters();
     setupEventListeners();
     loadTournamentData();
 });
+
+/**
+ * 清空所有筛选器的值
+ */
+function clearAllFilters() {
+    const filterElements = [
+        'searchInput',
+        'typeFilter',
+        'certifiedFilter',
+        'settledFilter'
+    ];
+    
+    filterElements.forEach(elementId => {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.value = '';
+        }
+    });
+    
+    currentFilters = {};
+}
 
 /**
  * 设置事件监听器
@@ -45,9 +68,7 @@ function setupEventListeners() {
     const filterElements = [
         'typeFilter',
         'certifiedFilter', 
-        'settledFilter',
-        'dateFromFilter',
-        'dateToFilter'
+        'settledFilter'
     ];
     
     filterElements.forEach(filterId => {
@@ -105,21 +126,40 @@ function setupEventListeners() {
  */
 async function loadTournamentData() {
     try {
+        console.log('开始加载比赛数据...');
         const result = await API.Tournament.getAll();
+        console.log('API返回结果:', result);
         
         if (result.success && result.data) {
-            allTournaments = result.data.tournaments || [];
+            // 检查数据格式
+            let tournaments = [];
+            
+            if (result.data.tournaments && Array.isArray(result.data.tournaments)) {
+                tournaments = result.data.tournaments;
+            } else if (Array.isArray(result.data)) {
+                // 兼容直接返回数组的情况
+                tournaments = result.data;
+            } else {
+                console.warn('数据格式不符合预期:', result.data);
+                showError('数据格式错误：期望tournaments数组');
+                return;
+            }
+            
+            console.log(`成功获取 ${tournaments.length} 条比赛记录`);
+            allTournaments = tournaments;
             filteredTournaments = [...allTournaments];
             totalRecords = allTournaments.length;
             
-            applyFiltersAndSort();
+            // 页面初始化时直接显示所有数据，不应用筛选
+            applySortOnly();
             renderTable();
         } else {
+            console.error('API调用失败:', result);
             showError('加载数据失败：' + (result.error || '未知错误'));
         }
     } catch (error) {
         console.error('加载比赛数据失败:', error);
-        showError('加载数据失败，请稍后重试');
+        showError('加载数据失败，请稍后重试：' + error.message);
     }
 }
 
@@ -132,7 +172,18 @@ function handleSearch() {
     
     currentFilters.search = searchTerm;
     currentPage = 1;
-    applyFiltersAndSort();
+    
+    // 检查是否有任何筛选条件
+    const hasAnyFilter = searchTerm || currentFilters.type || currentFilters.certified || currentFilters.settled;
+    
+    if (hasAnyFilter) {
+        // 有筛选条件时应用筛选
+        applyFiltersAndSort();
+    } else {
+        // 没有筛选条件时只排序
+        applySortOnly();
+    }
+    
     renderTable();
 }
 
@@ -140,17 +191,32 @@ function handleSearch() {
  * 处理筛选
  */
 function handleFilter() {
+    // 获取筛选值，确保空字符串被认为是无筛选
+    const searchValue = document.getElementById('searchInput')?.value.trim() || '';
+    const typeValue = document.getElementById('typeFilter')?.value || '';
+    const certifiedValue = document.getElementById('certifiedFilter')?.value || '';
+    const settledValue = document.getElementById('settledFilter')?.value || '';
+    
     currentFilters = {
-        search: document.getElementById('searchInput')?.value.trim().toLowerCase() || '',
-        type: document.getElementById('typeFilter')?.value || '',
-        certified: document.getElementById('certifiedFilter')?.value || '',
-        settled: document.getElementById('settledFilter')?.value || '',
-        dateFrom: document.getElementById('dateFromFilter')?.value || '',
-        dateTo: document.getElementById('dateToFilter')?.value || ''
+        search: searchValue,
+        type: typeValue,
+        certified: certifiedValue,
+        settled: settledValue
     };
     
+    // 检查是否有任何筛选条件
+    const hasAnyFilter = searchValue || typeValue || certifiedValue || settledValue;
+    
     currentPage = 1;
-    applyFiltersAndSort();
+    
+    if (hasAnyFilter) {
+        // 有筛选条件时应用筛选
+        applyFiltersAndSort();
+    } else {
+        // 没有筛选条件时只排序
+        applySortOnly();
+    }
+    
     renderTable();
 }
 
@@ -163,9 +229,7 @@ function clearFilters() {
         'searchInput',
         'typeFilter',
         'certifiedFilter',
-        'settledFilter',
-        'dateFromFilter',
-        'dateToFilter'
+        'settledFilter'
     ];
     
     filterElements.forEach(elementId => {
@@ -177,8 +241,50 @@ function clearFilters() {
     
     currentFilters = {};
     currentPage = 1;
-    applyFiltersAndSort();
+    
+    // 清空筛选后显示所有数据
+    applySortOnly();
     renderTable();
+}
+
+/**
+ * 仅应用排序（不筛选）
+ */
+function applySortOnly() {
+    // 复制所有数据
+    filteredTournaments = [...allTournaments];
+    
+    // 应用排序
+    filteredTournaments.sort((a, b) => {
+        const { field, direction } = currentSort;
+        
+        let aValue = a[field];
+        let bValue = b[field];
+        
+        // 处理日期类型
+        if (field === 'eventDate') {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        }
+        
+        // 处理数字类型
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return direction === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        // 处理字符串类型
+        aValue = String(aValue || '').toLowerCase();
+        bValue = String(bValue || '').toLowerCase();
+        
+        if (direction === 'asc') {
+            return aValue.localeCompare(bValue);
+        } else {
+            return bValue.localeCompare(aValue);
+        }
+    });
+    
+    totalRecords = filteredTournaments.length;
+    totalPages = Math.ceil(totalRecords / pageSize);
 }
 
 /**
@@ -220,24 +326,6 @@ function applyFiltersAndSort() {
             }
         }
         
-        // 日期范围筛选
-        if (currentFilters.dateFrom || currentFilters.dateTo) {
-            const eventDate = new Date(tournament.eventDate);
-            
-            if (currentFilters.dateFrom) {
-                const fromDate = new Date(currentFilters.dateFrom);
-                if (eventDate < fromDate) {
-                    return false;
-                }
-            }
-            
-            if (currentFilters.dateTo) {
-                const toDate = new Date(currentFilters.dateTo);
-                if (eventDate > toDate) {
-                    return false;
-                }
-            }
-        }
         
         return true;
     });
@@ -291,8 +379,17 @@ function handleSort(header) {
     // 更新排序图标
     updateSortIcons();
     
-    // 重新应用排序
-    applyFiltersAndSort();
+    // 重新应用排序（保持当前筛选状态）
+    const hasAnyFilter = currentFilters.search || currentFilters.type || currentFilters.certified || currentFilters.settled;
+    
+    if (hasAnyFilter) {
+        // 有筛选条件时应用筛选和排序
+        applyFiltersAndSort();
+    } else {
+        // 没有筛选条件时只排序
+        applySortOnly();
+    }
+    
     renderTable();
 }
 

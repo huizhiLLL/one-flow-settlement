@@ -1,8 +1,7 @@
 import cloud from '@lafjs/cloud'
 
-// 获取数据库集合
+// 获取数据库
 const db = cloud.database()
-const collection = db.collection('tournaments')
 
 /**
  * 计算比赛手续费和相关费用
@@ -80,14 +79,6 @@ function validateTournamentData(data) {
         errors.push('参赛人数必须大于等于0');
     }
     
-    if (data.withdrawalCount === null || data.withdrawalCount === undefined || data.withdrawalCount < 0) {
-        errors.push('退赛人数必须大于等于0');
-    }
-    
-    if (data.totalRevenue === null || data.totalRevenue === undefined || data.totalRevenue < 0) {
-        errors.push('流水总计必须大于等于0');
-    }
-    
     if (!data.tournamentType || !['协会机构', '高校联赛', '高校校园赛'].includes(data.tournamentType)) {
         errors.push('请选择正确的比赛类型');
     }
@@ -102,6 +93,18 @@ export default async function (ctx) {
     const { method, body, query } = ctx
     
     try {
+        // 设置CORS头
+        ctx.response.setHeader('Access-Control-Allow-Origin', '*')
+        ctx.response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
+        ctx.response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+        
+        // 处理预检请求
+        if (method === 'OPTIONS') {
+            return { success: true }
+        }
+        
+        console.log(`处理${method}请求, query:`, query, 'body:', body)
+        
         switch (method) {
             case 'GET':
                 // 获取比赛列表或单个比赛
@@ -117,24 +120,24 @@ export default async function (ctx) {
                 
             case 'PUT':
                 // 更新比赛信息
-                if (!query.id) {
+                if (!body.id) {
                     return { success: false, error: '缺少比赛ID' }
                 }
-                return await updateTournament(query.id, body)
+                return await updateTournament(body.id, body)
                 
             case 'DELETE':
                 // 删除比赛
-                if (!query.id) {
+                if (!body.id) {
                     return { success: false, error: '缺少比赛ID' }
                 }
-                return await deleteTournament(query.id)
+                return await deleteTournament(body.id)
                 
             case 'PATCH':
                 // 切换结算状态
-                if (!query.id) {
+                if (!body.id) {
                     return { success: false, error: '缺少比赛ID' }
                 }
-                return await toggleSettlement(query.id, body.isSettled)
+                return await toggleSettlement(body.id, body.isSettled)
                 
             default:
                 return { success: false, error: '不支持的请求方法' }
@@ -153,29 +156,53 @@ export default async function (ctx) {
  */
 async function getAllTournaments(query = {}) {
     try {
+        console.log('开始获取比赛列表，参数:', query)
+        
         const { page = 1, limit = 20, sort = 'eventDate', order = 'desc' } = query
         
-        const skip = (page - 1) * limit
-        const sortObj = { [sort]: order === 'desc' ? -1 : 1 }
+        // 获取tournaments集合
+        const collection = db.collection('tournaments')
         
-        const tournaments = await collection
-            .orderBy(sortObj)
-            .skip(skip)
-            .limit(parseInt(limit))
-            .get()
-            
-        const total = await collection.count()
+        // 构建查询
+        let dbQuery = collection
+        
+        // 添加排序
+        const sortField = sort || 'eventDate'
+        const sortOrder = order === 'asc' ? 1 : -1
+        dbQuery = dbQuery.orderBy(sortField, sortOrder === 1 ? 'asc' : 'desc')
+        
+        // 分页
+        const skip = (parseInt(page) - 1) * parseInt(limit)
+        if (skip > 0) {
+            dbQuery = dbQuery.skip(skip)
+        }
+        dbQuery = dbQuery.limit(parseInt(limit))
+        
+        // 执行查询
+        console.log('执行数据库查询...')
+        const result = await dbQuery.get()
+        console.log('查询结果:', result)
+        
+        // 获取总数
+        const countResult = await collection.count()
+        console.log('总数查询结果:', countResult)
+        
+        const tournaments = result.data || []
+        const total = countResult.total || 0
+        
+        console.log(`成功获取${tournaments.length}条记录，总计${total}条`)
         
         return {
             success: true,
             data: {
-                tournaments: tournaments.data,
-                total: total.total,
+                tournaments: tournaments,
+                total: total,
                 page: parseInt(page),
                 limit: parseInt(limit)
             }
         }
     } catch (error) {
+        console.error('获取比赛列表失败:', error)
         throw new Error('获取比赛列表失败: ' + error.message)
     }
 }
@@ -185,6 +212,9 @@ async function getAllTournaments(query = {}) {
  */
 async function getTournamentById(id) {
     try {
+        console.log('获取比赛详情, ID:', id)
+        
+        const collection = db.collection('tournaments')
         const result = await collection.doc(id).get()
         
         if (!result.data) {
@@ -196,6 +226,7 @@ async function getTournamentById(id) {
             data: result.data
         }
     } catch (error) {
+        console.error('获取比赛详情失败:', error)
         throw new Error('获取比赛详情失败: ' + error.message)
     }
 }
@@ -205,6 +236,8 @@ async function getTournamentById(id) {
  */
 async function createTournament(data) {
     try {
+        console.log('创建新比赛:', data)
+        
         // 验证数据
         const validation = validateTournamentData(data)
         if (!validation.isValid) {
@@ -226,7 +259,12 @@ async function createTournament(data) {
             updatedAt: new Date()
         }
         
+        console.log('保存数据:', tournamentData)
+        
+        const collection = db.collection('tournaments')
         const result = await collection.add(tournamentData)
+        
+        console.log('创建结果:', result)
         
         return {
             success: true,
@@ -236,6 +274,7 @@ async function createTournament(data) {
             }
         }
     } catch (error) {
+        console.error('创建比赛失败:', error)
         throw new Error('创建比赛失败: ' + error.message)
     }
 }
@@ -245,6 +284,8 @@ async function createTournament(data) {
  */
 async function updateTournament(id, data) {
     try {
+        console.log('更新比赛:', id, data)
+        
         // 验证数据
         const validation = validateTournamentData(data)
         if (!validation.isValid) {
@@ -263,6 +304,7 @@ async function updateTournament(id, data) {
             updatedAt: new Date()
         }
         
+        const collection = db.collection('tournaments')
         const result = await collection.doc(id).update(updateData)
         
         if (result.updated === 0) {
@@ -277,6 +319,7 @@ async function updateTournament(id, data) {
             data: updated.data
         }
     } catch (error) {
+        console.error('更新比赛失败:', error)
         throw new Error('更新比赛失败: ' + error.message)
     }
 }
@@ -286,6 +329,9 @@ async function updateTournament(id, data) {
  */
 async function deleteTournament(id) {
     try {
+        console.log('删除比赛:', id)
+        
+        const collection = db.collection('tournaments')
         const result = await collection.doc(id).remove()
         
         if (result.deleted === 0) {
@@ -297,6 +343,7 @@ async function deleteTournament(id) {
             data: { deleted: true }
         }
     } catch (error) {
+        console.error('删除比赛失败:', error)
         throw new Error('删除比赛失败: ' + error.message)
     }
 }
@@ -306,6 +353,9 @@ async function deleteTournament(id) {
  */
 async function toggleSettlement(id, isSettled) {
     try {
+        console.log('切换结算状态:', id, isSettled)
+        
+        const collection = db.collection('tournaments')
         const result = await collection.doc(id).update({
             isSettled,
             updatedAt: new Date()
@@ -323,6 +373,7 @@ async function toggleSettlement(id, isSettled) {
             data: updated.data
         }
     } catch (error) {
+        console.error('切换结算状态失败:', error)
         throw new Error('切换结算状态失败: ' + error.message)
     }
 }

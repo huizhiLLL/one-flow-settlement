@@ -1,13 +1,24 @@
 import cloud from '@lafjs/cloud'
 
-// 获取数据库集合
+// 获取数据库
 const db = cloud.database()
-const collection = db.collection('tournaments')
 
 export default async function (ctx) {
     const { method, query } = ctx
     
     try {
+        // 设置CORS头
+        ctx.response.setHeader('Access-Control-Allow-Origin', '*')
+        ctx.response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
+        ctx.response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+        
+        // 处理预检请求
+        if (method === 'OPTIONS') {
+            return { success: true }
+        }
+        
+        console.log(`处理Dashboard ${method}请求, query:`, query)
+        
         switch (method) {
             case 'GET':
                 if (query.type === 'stats') {
@@ -38,6 +49,8 @@ export default async function (ctx) {
  */
 async function getFullDashboardData() {
     try {
+        console.log('开始获取完整仪表板数据...')
+        
         // 并行获取各种统计数据
         const [
             totalStats,
@@ -46,18 +59,21 @@ async function getFullDashboardData() {
         ] = await Promise.all([
             getTotalStatistics(),
             getCurrentMonthStatistics(),
-            getRecentTournaments(5)
+            getRecentTournamentsData(5)
         ])
+        
+        console.log('所有数据获取完成')
         
         return {
             success: true,
             data: {
                 ...totalStats,
                 ...monthlyStats,
-                recentTournaments: recentTournaments.data
+                recentTournaments: recentTournaments
             }
         }
     } catch (error) {
+        console.error('获取仪表板数据失败:', error)
         throw new Error('获取仪表板数据失败: ' + error.message)
     }
 }
@@ -67,43 +83,51 @@ async function getFullDashboardData() {
  */
 async function getTotalStatistics() {
     try {
-        const result = await collection.aggregate()
-            .group({
-                _id: null,
-                totalRevenue: cloud.database().command.sum('$totalRevenue'),
-                totalIncome: cloud.database().command.sum('$totalIncome'),
-                totalTournaments: cloud.database().command.sum(1),
-                totalParticipants: cloud.database().command.sum('$participantCount'),
-                settledCount: cloud.database().command.sum(
-                    cloud.database().command.cond({
-                        if: cloud.database().command.eq(['$isSettled', true]),
-                        then: 1,
-                        else: 0
-                    })
-                ),
-                certifiedCount: cloud.database().command.sum(
-                    cloud.database().command.cond({
-                        if: cloud.database().command.eq(['$isCertified', true]),
-                        then: 1,
-                        else: 0
-                    })
-                )
-            })
-            .end()
+        console.log('开始获取总体统计...')
         
-        if (result.list.length === 0) {
-            return {
-                totalRevenue: 0,
-                totalIncome: 0,
-                totalTournaments: 0,
-                totalParticipants: 0,
-                settledCount: 0,
-                certifiedCount: 0
+        const collection = db.collection('tournaments')
+        
+        // 获取所有比赛数据
+        const allTournaments = await collection.get()
+        const tournaments = allTournaments.data || []
+        
+        console.log(`获取到${tournaments.length}条比赛记录`)
+        
+        // 手动计算统计数据
+        let totalRevenue = 0
+        let totalIncome = 0
+        let totalParticipants = 0
+        let settledCount = 0
+        let certifiedCount = 0
+        
+        tournaments.forEach(tournament => {
+            totalRevenue += tournament.totalRevenue || 0
+            totalIncome += tournament.totalIncome || 0
+            totalParticipants += tournament.participantCount || 0
+            
+            if (tournament.isSettled) {
+                settledCount++
             }
+            
+            if (tournament.isCertified) {
+                certifiedCount++
+            }
+        })
+        
+        const result = {
+            totalRevenue,
+            totalIncome,
+            totalTournaments: tournaments.length,
+            totalParticipants,
+            settledCount,
+            certifiedCount
         }
         
-        return result.list[0]
+        console.log('总体统计结果:', result)
+        return result
+        
     } catch (error) {
+        console.error('获取总体统计失败:', error)
         throw new Error('获取总体统计失败: ' + error.message)
     }
 }
@@ -124,6 +148,8 @@ async function getCurrentMonthStatistics() {
  */
 async function getMonthlyStats(year, month) {
     try {
+        console.log(`获取月度统计: ${year}年${month}月`)
+        
         if (!year || !month) {
             return { success: false, error: '缺少年份或月份参数' }
         }
@@ -135,6 +161,7 @@ async function getMonthlyStats(year, month) {
             data: monthlyData
         }
     } catch (error) {
+        console.error('获取月度统计失败:', error)
         throw new Error('获取月度统计失败: ' + error.message)
     }
 }
@@ -144,33 +171,48 @@ async function getMonthlyStats(year, month) {
  */
 async function getMonthlyStatisticsData(year, month) {
     try {
+        console.log(`开始计算${year}年${month}月统计...`)
+        
         const startDate = new Date(year, month - 1, 1)
         const endDate = new Date(year, month, 0, 23, 59, 59)
         
-        const result = await collection.aggregate()
-            .match({
-                eventDate: cloud.database().command.gte(startDate).and(cloud.database().command.lte(endDate))
-            })
-            .group({
-                _id: null,
-                monthlyRevenue: cloud.database().command.sum('$totalRevenue'),
-                monthlyIncome: cloud.database().command.sum('$totalIncome'),
-                monthlyTournaments: cloud.database().command.sum(1),
-                monthlyParticipants: cloud.database().command.sum('$participantCount')
-            })
-            .end()
+        console.log('日期范围:', startDate, '到', endDate)
         
-        if (result.list.length === 0) {
-            return {
-                monthlyRevenue: 0,
-                monthlyIncome: 0,
-                monthlyTournaments: 0,
-                monthlyParticipants: 0
-            }
+        const collection = db.collection('tournaments')
+        
+        // 获取指定月份的比赛数据
+        const result = await collection
+            .where({
+                eventDate: db.command.gte(startDate).and(db.command.lte(endDate))
+            })
+            .get()
+            
+        const tournaments = result.data || []
+        console.log(`${year}年${month}月找到${tournaments.length}条记录`)
+        
+        // 手动计算月度统计
+        let monthlyRevenue = 0
+        let monthlyIncome = 0
+        let monthlyParticipants = 0
+        
+        tournaments.forEach(tournament => {
+            monthlyRevenue += tournament.totalRevenue || 0
+            monthlyIncome += tournament.totalIncome || 0
+            monthlyParticipants += tournament.participantCount || 0
+        })
+        
+        const monthlyData = {
+            monthlyRevenue,
+            monthlyIncome,
+            monthlyTournaments: tournaments.length,
+            monthlyParticipants
         }
         
-        return result.list[0]
+        console.log('月度统计结果:', monthlyData)
+        return monthlyData
+        
     } catch (error) {
+        console.error('获取月度统计数据失败:', error)
         throw new Error('获取月度统计数据失败: ' + error.message)
     }
 }
@@ -180,17 +222,40 @@ async function getMonthlyStatisticsData(year, month) {
  */
 async function getRecentTournaments(limit = 10) {
     try {
-        const tournaments = await collection
-            .orderBy('createdAt', 'desc')
-            .limit(parseInt(limit))
-            .get()
+        console.log(`获取最近${limit}条比赛记录`)
+        
+        const tournaments = await getRecentTournamentsData(parseInt(limit))
         
         return {
             success: true,
-            data: tournaments.data
+            data: tournaments
         }
     } catch (error) {
+        console.error('获取最近比赛失败:', error)
         throw new Error('获取最近比赛失败: ' + error.message)
+    }
+}
+
+/**
+ * 获取最近的比赛记录（内部函数）
+ */
+async function getRecentTournamentsData(limit = 10) {
+    try {
+        const collection = db.collection('tournaments')
+        
+        const result = await collection
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get()
+        
+        const tournaments = result.data || []
+        console.log(`获取到${tournaments.length}条最近比赛记录`)
+        
+        return tournaments
+        
+    } catch (error) {
+        console.error('获取最近比赛数据失败:', error)
+        throw new Error('获取最近比赛数据失败: ' + error.message)
     }
 }
 
@@ -199,57 +264,64 @@ async function getRecentTournaments(limit = 10) {
  */
 async function getDashboardStats(query = {}) {
     try {
+        console.log('获取仪表板统计数据, 参数:', query)
+        
         const { dateFrom, dateTo } = query
         
-        let matchConditions = {}
+        const collection = db.collection('tournaments')
+        let dbQuery = collection
         
         // 日期范围筛选
         if (dateFrom || dateTo) {
-            matchConditions.eventDate = {}
-            if (dateFrom) {
-                matchConditions.eventDate[cloud.database().command.gte.name] = new Date(dateFrom)
+            const whereCondition = {}
+            if (dateFrom && dateTo) {
+                whereCondition.eventDate = db.command.gte(new Date(dateFrom)).and(db.command.lte(new Date(dateTo)))
+            } else if (dateFrom) {
+                whereCondition.eventDate = db.command.gte(new Date(dateFrom))
+            } else if (dateTo) {
+                whereCondition.eventDate = db.command.lte(new Date(dateTo))
             }
-            if (dateTo) {
-                matchConditions.eventDate[cloud.database().command.lte.name] = new Date(dateTo)
+            
+            dbQuery = dbQuery.where(whereCondition)
+        }
+        
+        const result = await dbQuery.get()
+        const tournaments = result.data || []
+        
+        console.log(`根据条件筛选出${tournaments.length}条记录`)
+        
+        // 手动计算统计数据
+        let totalRevenue = 0
+        let totalIncome = 0
+        let totalParticipants = 0
+        let settledCount = 0
+        
+        tournaments.forEach(tournament => {
+            totalRevenue += tournament.totalRevenue || 0
+            totalIncome += tournament.totalIncome || 0
+            totalParticipants += tournament.participantCount || 0
+            
+            if (tournament.isSettled) {
+                settledCount++
             }
+        })
+        
+        const stats = {
+            totalRevenue,
+            totalIncome,
+            totalTournaments: tournaments.length,
+            totalParticipants,
+            settledCount
         }
         
-        const aggregateQuery = collection.aggregate()
-        
-        if (Object.keys(matchConditions).length > 0) {
-            aggregateQuery.match(matchConditions)
-        }
-        
-        const result = await aggregateQuery
-            .group({
-                _id: null,
-                totalRevenue: cloud.database().command.sum('$totalRevenue'),
-                totalIncome: cloud.database().command.sum('$totalIncome'),
-                totalTournaments: cloud.database().command.sum(1),
-                totalParticipants: cloud.database().command.sum('$participantCount'),
-                settledCount: cloud.database().command.sum(
-                    cloud.database().command.cond({
-                        if: cloud.database().command.eq(['$isSettled', true]),
-                        then: 1,
-                        else: 0
-                    })
-                )
-            })
-            .end()
-        
-        const stats = result.list.length > 0 ? result.list[0] : {
-            totalRevenue: 0,
-            totalIncome: 0,
-            totalTournaments: 0,
-            totalParticipants: 0,
-            settledCount: 0
-        }
+        console.log('统计结果:', stats)
         
         return {
             success: true,
             data: stats
         }
     } catch (error) {
+        console.error('获取统计数据失败:', error)
         throw new Error('获取统计数据失败: ' + error.message)
     }
 }
